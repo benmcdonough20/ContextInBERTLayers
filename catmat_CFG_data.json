@@ -1,0 +1,52 @@
+[
+    {
+        "input": "the cat sat behind the rat",
+        "subj_pos": 1,
+        "class": "sat"
+    },
+    {
+        "input": "the rat behind the flat mat spat on the cat",
+        "subj_pos": 1,
+        "class": "spat"
+    },
+    {
+        "input": "the flat mat spat under the flat mat",
+        "subj_pos": 2,
+        "class": "spat"
+    },
+    {
+        "input": "the fat cat spat under the mat",
+        "subj_pos": 2,
+        "class": "spat"
+    },
+    {
+        "input": "the cat spat under the cat",
+        "subj_pos": 1,
+        "class": "spat"
+    },
+    {
+        "input": "the fat cat behind the cat sat on the cat",
+        "subj_pos": 2,
+        "class": "sat"
+    },
+    {
+        "input": "the cat sat",
+        "subj_pos": 1,
+        "class": "sat"
+    },
+    {
+        "input": "the fat cat spat under the fat cat",
+        "subj_pos": 2,
+        "class": "spat"
+    },
+    {
+        "input": "the cat sat behind the fat mat",
+        "subj_pos": 1,
+        "class": "sat"
+    },
+    {
+        "input": "the rat sat under the fat mat",
+        "subj_pos": 1,
+        "class": "sat"
+    }
+]
