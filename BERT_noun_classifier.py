@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import BertTokenizer, BertModel, BertConfig
 
 DEVICE = torch.device('cuda')
-CONFIG = BertConfig.from_pretrained(show_hidden_states = True)
+CONFIG = BertConfig.from_pretrained('bert-base-uncased', show_hidden_states = True)
 
 import json
 
@@ -11,6 +11,11 @@ train_file = open("/home/ben/Documents/Repos/ContextInBERTLayers/train_data.json
 train_data = json.load(train_file)
 
 classes = list(set([t["class"] for t in train_data]))
+
+def dirac_mass(cat):
+  ret = [0]*len(classes)
+  ret[classes.index(cat)] = 1
+  return ret
 
 class BERTHiddenStateClassifier(nn.Module):
 
@@ -22,6 +27,10 @@ class BERTHiddenStateClassifier(nn.Module):
     # from https://huggingface.co/docs/transformers/model_doc/bert#tfbertmodel
     # now "bert(**input)" will contain a key for all hidden layers (13)
     self.bert = BertModel.from_pretrained("bert-base-uncased", config = CONFIG).to(device=DEVICE)
+
+    """
+    replace this with RNN! 
+    """
     self.output = nn.Sequential(
       nn.Linear(
         in_features = 768, #represents a BERT encoding of a single word. This should be enough but
@@ -36,43 +45,40 @@ class BERTHiddenStateClassifier(nn.Module):
   def forward(self, inp):
 
     #encode and move to GPU
+    tokens_idxs = inp[0]
+    encoded_input = self.tokenizer(inp[1], return_tensors = "pt")
+    for key, value in encoded_input.items():
+      encoded_input[key] = value.to(device = DEVICE)
 
-    target_word = sentence[inp[0]]
-    target_token = self.tokenizer
-
-    encoded_input = self.tokenizer(inp[1], return_tensors="pt")
-    encoded_input = self.tokenizer(inp[1], return_tensors="pt")
-    for key in encoded_input:
-      encoded_input[key] = encoded_input[key].to(device=DEVICE)
-
-    # dict list contains 3 dimensional array by 1) sentence 2) word 3) entries in hidden state.
-    # Word [0] is always CLS. Not sure why this token is special
-    emb = self.bert(**encoded_input)["last_hidden_state"][0][inp[0]+1] #replace with token
+    """
+    For now, just using the first of the tokens to classify. Replace with RNN
+    """
+    emb = self.bert(**encoded_input)["last_hidden_state"][0][tokens_idxs[0]]
+    
     emb = emb.detach() #I guess this moves it out of GPU mem?
     outp = self.output(emb)
 
     return outp
 
-  def predict(self, sentence): #classify and generate prediction to compute loss
+  def predict(self, noun_tokens, sentence): #classify and generate prediction to compute loss
     prob = self.forward(sentence)
-    return (prob > .5, prob)
+    return classes[torch.topk(prob, 1)[1].item()]
 
-
-loss_function = nn.BCELoss()
+loss_function = nn.CrossEntropyLoss()
 def compute_validation_loss(model):
 
   total_loss = 0
   total_correct = 0
-  count_examples = len(sst2["validation"])
+  count_examples = len(train_data)
 
-  for example in sst2["validation"]:
+  for example in train_data:
 
-    sentence, correct_label = example["sentence"], example["label"]
+    tokenized_sentence, token_idxs, correct_label = example['input'], example['noun_tok_poses'], example['class']
 
-    label = torch.FloatTensor([correct_label]).to(device=DEVICE)
-    predicted = model(sentence)
-    total_loss += loss_function(predicted, label)
-    total_correct += int((predicted.item() > 0.5) == example["label"])
+    ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
+    predicted = model([token_idxs, tokenized_sentence])
+    total_loss += loss_function(predicted, ideal_dist)
+    total_correct += int(classes[torch.topk(predicted, 1)[1].item()] == correct_label)
 
   return total_loss / count_examples, total_correct / count_examples
 
@@ -81,16 +87,15 @@ cls = BERTHiddenStateClassifier().to(device=DEVICE)
 optimizer = torch.optim.Adam(cls.parameters(), lr=0.005)
 
 loss = 0
-for index, example in enumerate(sst2["train"]):
+for index, example in enumerate(train_data):
 
-  # Get the sentence and label for this example
-  sentence = example["sentence"]
-  label = torch.FloatTensor([example["label"]]).to(device=DEVICE)
+  tokenized_sentence, token_idxs, correct_label = example['input'], example['noun_tok_poses'], example['class']
 
-  # Get the model's prediction
-  predicted = cls(sentence)
-  # Compute the loss
-  loss += loss_function(predicted, label)
+  ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
+  predicted = cls([token_idxs, tokenized_sentence])
+
+  print(predicted, ideal_dist)
+  loss += loss_function(predicted, ideal_dist)
 
   if index % 64 == 0: #Can we improve this naive batching strategy?
     loss.backward() #loss is a tensor and contains a backpropagation method
@@ -102,6 +107,3 @@ for index, example in enumerate(sst2["train"]):
   if index % 1000 == 0:
     loss, accuracy = compute_validation_loss(cls)
     print(index, loss.item(), accuracy)
-
-#functions defined in the classifer class can now be used
-cls.predict("I hate this movie!")

@@ -1,6 +1,5 @@
 import random
 import json
-import numpy as np
 from transformers import BertTokenizer
 
 #Little rhyming grammar I made
@@ -31,6 +30,12 @@ terminals_mammals = [
 ]
 
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+
+def concat(*arrs):
+    ret = []
+    for arr in arrs:
+        ret += arr
+    return ret
 
 def gen_grammar(terminals):
     nouns,verbs,adjectives,prepositions = terminals
@@ -70,7 +75,7 @@ class Sentence:
         return str(self.rootnode)
 
     def tokenize(self):
-        return np.concatenate(([101],self.rootnode.tokenize(),[102]))
+        return concat([101],self.rootnode.tokenize(),[102])
 
 #tree nodes
 class Node:
@@ -94,7 +99,7 @@ class Node:
     def tokenize(self):
         if len(self.leaves) == 0:
             return self.tokens
-        return np.concatenate([l.tokenize() for l in self.leaves])
+        return concat(*[l.tokenize() for l in self.leaves])
 
     def first_left_subtree(self):
         if len(self.parent.leaves) == 2 and self.parent.leaves[1] == self:
@@ -103,12 +108,12 @@ class Node:
             return self.parent.first_left_subtree()
 
     def position(self):
-        return len(str(self.first_left_subtree()).split(" "))+2
+        return len(str(self.first_left_subtree()).split(" "))
 
     def token_positions(self):
-        start_idx = len(self.first_left_subtree().tokenize())
+        start_idx = len(self.first_left_subtree().tokenize()) + 1 #to account for CLS
         num_toks = len(self.tokens)
-        return np.arange(num_toks) + start_idx
+        return [start_idx + i for i in range(num_toks)]
 
 class EmptyNode:
     def __init__(self, word, grammar):
@@ -119,25 +124,21 @@ class EmptyNode:
     def __str__(self):
         return self.word
 
-s = Sentence(gen_grammar(terminals_mammals))
-print(s.get_main_phrase(['V', 'VP']).token_positions())
-print(s)
-print([tokenizer.decode(tok) for tok in s.tokenize()])
 
-"""
-#generate a bunch of pairs with location of subject and verb
+s = Sentence(gen_grammar(terminals_mammals))
+
 responses = []
 for i in range(20):
     s = Sentence(gen_grammar(terminals_mammals))
-    noun = s.get_main_phrase(["N", "NP"]).word
-    noun_pos = str(s).split(" ").index(noun)
+    noun = s.get_main_phrase(["N", "NP"])
+    noun_tok_pos = noun.token_positions()
     responses.append(
-        {"input" : str(s),
-        "noun_pos" : noun_pos,
-        "class" : noun
+        {
+            "input" : str(s),
+            "noun_tok_poses" : list(noun_tok_pos),
+            "class" : noun.word
         }
     )
 
 with open("train_data.json", "w") as f:
-    f.write(json.dumps(responses, indent = 4))
-"""
+    f.write(json.dumps(responses, indent = 2))
