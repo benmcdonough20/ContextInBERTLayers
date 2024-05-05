@@ -91,12 +91,12 @@ class EmptyNode:
 responses = []
 for i in range(100):
     s = Sentence(gen_grammar(terminals_fish))
-    subj = s.get_main_phrase(["N", "NP"]).word
+    subj = s.get_main_phrase(["V", "VP"]).word
     subj_pos = str(s).split(" ").index(subj)
     responses.append(
         {"input" : str(s),
         "subj_pos" : subj_pos,
-        "class" : s.get_main_phrase(["V", "VP"]).word}
+        "class" : s.get_main_phrase(["N", "NP"]).word}
     )
 
 with open("catmat_CFG_data.json", "w") as f:

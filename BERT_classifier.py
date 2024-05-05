@@ -5,7 +5,7 @@ from transformers import BertTokenizer, BertModel, BertConfig
 import datasets #to be replaced with CFG generator
 
 DEVICE = torch.device('cuda')
-CONFIG = BertConfig.from_pretrained("/home/ben/Documents/Repos/ContextInBERTLayers/catmat_CFG_data.json")
+CONFIG = BertConfig.from_pretrained(show_hidden_states = True)
 
 sst2 = datasets.load_dataset("sst2")
 
