@@ -2,12 +2,15 @@ import torch
 import torch.nn as nn
 from transformers import BertTokenizer, BertModel, BertConfig
 
-import datasets #to be replaced with CFG generator
-
 DEVICE = torch.device('cuda')
-CONFIG = BertConfig.from_pretrained('bert-base-uncased', show_hidden_states = True)
+CONFIG = BertConfig.from_pretrained(show_hidden_states = True)
 
-sst2 = datasets.load_dataset("sst2")
+import json
+
+train_file = open("/home/ben/Documents/Repos/ContextInBERTLayers/train_data.json", "r")
+train_data = json.load(train_file)
+
+classes = list(set([t["class"] for t in train_data]))
 
 class BERTHiddenStateClassifier(nn.Module):
 
@@ -23,23 +26,28 @@ class BERTHiddenStateClassifier(nn.Module):
       nn.Linear(
         in_features = 768, #represents a BERT encoding of a single word. This should be enough but
                             #if we need more, we can just concatenate them together
-        out_features = 1 #number of categories to classify over, e.g. 
+        out_features = len(classes) #number of categories to classify over, e.g. 
                           #corresponding to the # of nouns in the grammar if we do that
       ),
-      nn.Sigmoid()
+      nn.Softmax()
     )
 
   # vector, it should return the output
   def forward(self, inp):
 
     #encode and move to GPU
-    encoded_input = self.tokenizer(inp, return_tensors="pt")
+
+    target_word = sentence[inp[0]]
+    target_token = self.tokenizer
+
+    encoded_input = self.tokenizer(inp[1], return_tensors="pt")
+    encoded_input = self.tokenizer(inp[1], return_tensors="pt")
     for key in encoded_input:
       encoded_input[key] = encoded_input[key].to(device=DEVICE)
 
     # dict list contains 3 dimensional array by 1) sentence 2) word 3) entries in hidden state.
     # Word [0] is always CLS. Not sure why this token is special
-    emb = self.bert(**encoded_input)["last_hidden_state"][0][0]
+    emb = self.bert(**encoded_input)["last_hidden_state"][0][inp[0]+1] #replace with token
     emb = emb.detach() #I guess this moves it out of GPU mem?
     outp = self.output(emb)
 
