@@ -10,8 +10,8 @@ BERTHSSIZE = 768
 MAXTOKS = 1
 NUM_CLASSES=20
 
-CLASS = "name1" #gender
-#CLASS = "name2" #proximity
+#CLASS = "name1" #gender
+CLASS = "name2" #proximity
 
 girls_names = [
     "Emily",
@@ -67,7 +67,7 @@ elif CLASS == "name2":
 
 import json
 
-datafile = open("/home/ben/Documents/Repos/ContextInBERTLayers/train_data.json", "r")
+datafile = open("train_data.json", "r")
 dataset = json.load(datafile)
 
 def dirac_mass(classes, cat):
@@ -128,7 +128,7 @@ def compute_validation_loss(model, set):
   return total_loss / count_examples, total_correct / count_examples
 
 if __name__=='__main__':
-  ITER = 12
+  ITER = 8
   cls = BERTHiddenStateClassifier(ITER).to(device=DEVICE)
   optimizer = torch.optim.Adam(cls.parameters(), lr=0.002)
 
