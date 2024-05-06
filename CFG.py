@@ -140,11 +140,13 @@ def gen(terminals, num):
     sentences = list(sentences)
     for s in tqdm.tqdm(sentences):
         noun = s.get_main_phrase(["N", "NP"])
+        verb = s.get_main_phrase(["V", "VP"])
         noun_tok_pos = noun.token_positions()
+        verb_tok_pos = verb.token_positions()
         ret.append(
             {
                 "input" : str(s),
-                "noun_tok_poses" : list(noun_tok_pos),
+                "verb_tok_poses" : list(verb_tok_pos),
                 "class" : noun.word
             }
         )
