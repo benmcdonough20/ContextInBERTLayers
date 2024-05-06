@@ -11,7 +11,7 @@ MAXTOKS = 3
 
 import json
 
-datafile = open("/home/ben/Documents/Repos/ContextInBERTLayers/train_data.json", "r")
+datafile = open("train_data.json", "r")
 dataset = json.load(datafile)
 
 classes = list(set([t["class"] for t in dataset['train']]))
@@ -93,7 +93,7 @@ def compute_validation_loss(model, set):
 
   for example in tqdm.tqdm(set):
 
-    tokenized_sentence, token_idxs, correct_label = example['input'], example['noun_tok_poses'], example['class']
+    tokenized_sentence, token_idxs, correct_label = example['input'], example['verb_tok_poses'], example['class']
 
     ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
     predicted = model([token_idxs, tokenized_sentence])
@@ -103,29 +103,29 @@ def compute_validation_loss(model, set):
   return total_loss / count_examples, total_correct / count_examples
 
 if __name__=='__main__':
-  all_acuracies = []
-  for hidden_state_iter in range(13):
-    cls = BERTHiddenStateClassifier(hidden_state_iter).to(device=DEVICE)
-    optimizer = torch.optim.Adam(cls.parameters(), lr=0.0005)
+  ITER = 1
+  cls = BERTHiddenStateClassifier(ITER).to(device=DEVICE)
+  optimizer = torch.optim.Adam(cls.parameters(), lr=0.0005)
 
-    loss = 0
-    for index, example in enumerate(dataset['train']):
+  loss = 0
+  for index, example in enumerate(dataset['train']):
 
-      tokenized_sentence, token_idxs, correct_label = example['input'], example['noun_tok_poses'], example['class']
+    tokenized_sentence, token_idxs, correct_label = example['input'], example['verb_tok_poses'], example['class']
 
-      ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
-      predicted = cls([token_idxs, tokenized_sentence])
-      loss += loss_function(predicted, ideal_dist)
+    ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
+    predicted = cls([token_idxs, tokenized_sentence])
+    loss += loss_function(predicted, ideal_dist)
 
-      if index % 64 == 0: #Can we improve this naive batching strategy?
-        loss.backward() #loss is a tensor and contains a backpropagation method
-        optimizer.step() #step and then zero out
-        optimizer.zero_grad()
-        loss = 0
+    if index % 64 == 0: #Can we improve this naive batching strategy?
+      loss.backward() #loss is a tensor and contains a backpropagation method
+      optimizer.step() #step and then zero out
+      optimizer.zero_grad()
+      loss = 0
 
-      #monitor performance
-      if index % 1000 == 0:
-        loss, accuracy = compute_validation_loss(cls, dataset["validation"])
-        print(index, loss.item(), accuracy)
-    all_acuracies.append(compute_validation_loss(cls,dataset["test"][1]))
-  print(all_acuracies)
+    #monitor performance
+    if index % 1000 == 0:
+      loss, accuracy = compute_validation_loss(cls, dataset["validation"])
+      print(index, loss.item(), accuracy)
+
+    _,final_accuracy = compute_validation_loss(cls, dataset['test'])
+    print("ACCURACY",ITER,final_accuracy)

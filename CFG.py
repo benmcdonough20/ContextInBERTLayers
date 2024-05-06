@@ -152,7 +152,7 @@ def gen(terminals, num):
         )
     return ret
 
-sentences = gen(terminals_mammals, 22000)
+sentences = gen(terminals_mammals, 72000)
 
 with open("train_data.json", "w") as f:
     f.write(json.dumps({
