@@ -78,6 +78,9 @@ class Sentence:
     def tokenize(self):
         return concat([101],self.rootnode.tokenize(),[102])
 
+    def __hash__(self):
+        return self.__str__().__hash__()
+
 #tree nodes
 class Node:
     def __init__(self, word, parent):
@@ -130,9 +133,12 @@ def gen(terminals, num):
     ret = []
     sentences = set()
     grammar = gen_grammar(terminals)
-    for i in tqdm.tqdm(range(num)):
-        s = Sentence(grammar)
-        sentences.add(str(s))
+    with tqdm.tqdm(total = num) as pbar:
+        while len(sentences) < num:
+            sentences.add(Sentence(grammar))
+            pbar.update(len(sentences)-pbar.n)
+    sentences = list(sentences)
+    for s in tqdm.tqdm(sentences):
         noun = s.get_main_phrase(["N", "NP"])
         noun_tok_pos = noun.token_positions()
         ret.append(
@@ -142,13 +148,14 @@ def gen(terminals, num):
                 "class" : noun.word
             }
         )
-    print("Unique sentences:", len(list(sentences)), len(list(sentences))/num)
     return ret
+
+sentences = gen(terminals_mammals, 22000)
 
 with open("train_data.json", "w") as f:
     f.write(json.dumps({
-        'train':gen(terminals_mammals, 10000),
-        'validation':gen(terminals_mammals, 800),
-        'test':gen(terminals_fish, 2000)
+        'train':sentences[21000:],
+        'validation':sentences[:1000],
+        'test':sentences[1000:21000]
         },
         indent = 2))
