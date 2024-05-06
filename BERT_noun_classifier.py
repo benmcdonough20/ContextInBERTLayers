@@ -7,7 +7,7 @@ DEVICE = torch.device('cuda')
 CONFIG = BertConfig.from_pretrained('bert-base-uncased', show_hidden_states = True)
 BERTHSSIZE = 768
 MAXTOKS = 3
-GRUHSSIZE = 128
+GRUHSSIZE = 10
 
 import json
 
@@ -26,14 +26,13 @@ class RNN_GRU_classifier(nn.Module):
         super(RNN_GRU_classifier, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, bidirectional = True)   # GRU
+        self.gru = nn.GRU(input_size, hidden_size, num_layers)   # GRU
         self.fc = nn.Linear(hidden_size, num_classes)  
-        self.Softmax = nn.Softmax(dim=1)
+        self.Softmax = nn.Softmax()
 
     def forward(self, x):
         # Set initial hidden and cell states - GRU
-        h0 = torch.zeros(2*self.num_layers, self.hidden_size).to(DEVICE) 
-        print(h0.shape)
+        h0 = torch.zeros(self.num_layers, self.hidden_size).to(DEVICE) 
         # Forward propagate RNN
         out, _ = self.gru(x, h0)
         # Decode the hidden state of the last time step
@@ -90,7 +89,6 @@ class BERTHiddenStateClassifier(nn.Module):
         ret.append(torch.zeros(BERTHSSIZE).to(device = DEVICE))
    
     ret = torch.stack(ret, dim = 1)
-    print(ret.shape)
     outp = self.output(ret)
 
     return outp
