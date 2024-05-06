@@ -74,14 +74,14 @@ def compute_validation_loss(model, set):
   return total_loss / count_examples, total_correct / count_examples
 
 if __name__=='__main__':
-  ITER = 1
+  ITER = 6
   cls = BERTHiddenStateClassifier(ITER).to(device=DEVICE)
   optimizer = torch.optim.Adam(cls.parameters(), lr=0.001)
 
   loss = 0
   for index, example in enumerate(dataset['train']):
 
-    tokenized_sentence, token_idxs, correct_label = example['input'], example['verb_tok_pos'], example['class']
+    tokenized_sentence, token_idxs, correct_label = example['input'], example['pron_tok_pos'], example['class']
 
     ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
     predicted = cls([token_idxs, tokenized_sentence])
