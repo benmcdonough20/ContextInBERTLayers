@@ -4,7 +4,7 @@ from transformers import BertTokenizer, BertModel, BertConfig
 import tqdm
 
 DEVICE = torch.device('cuda')
-CONFIG = BertConfig.from_pretrained('bert-base-uncased', show_hidden_states = True)
+CONFIG = BertConfig.from_pretrained('bert-base-uncased', output_hidden_states = True)
 
 BERTHSSIZE = 768
 MAXTOKS = 3
