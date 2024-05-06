@@ -69,14 +69,15 @@ class Sentence:
             return self.get_phrase(nouns[0], branches)
     
     def add_pronoun(self, pronouns):
-        replacement = EmptyNode(random.choice(pronouns))
+        replacement = EmptyNode(random.choice(pronouns), self.grammar)
+        replacement.parent = self
         self.rootnode.leaves[0] = replacement
 
     def __str__(self):
         return str(self.rootnode)
 
-    def tokenize(self):
-        return concat([101],self.rootnode.tokenize(),[102])
+    def tokenize(self): #Omitting CLS and SEP tokens
+        return concat(self.rootnode.tokenize())
 
     def __hash__(self):
         return self.__str__().__hash__()
@@ -115,7 +116,7 @@ class Node:
         return len(str(self.first_left_subtree()).split(" "))
 
     def token_positions(self):
-        start_idx = len(self.first_left_subtree().tokenize()) + 1 #to account for CLS
+        start_idx = len(self.first_left_subtree().tokenize()) #remember to account for CLS
         num_toks = len(self.tokens)
         return [start_idx + i for i in range(num_toks)]
 
@@ -129,7 +130,8 @@ class EmptyNode:
         return self.word
 
 
-def gen(terminals, num):
+#generating code for experiment 1
+def gen_svsentences(terminals, num):
     ret = []
     sentences = set()
     grammar = gen_grammar(terminals)
@@ -141,8 +143,7 @@ def gen(terminals, num):
     for s in tqdm.tqdm(sentences):
         noun = s.get_main_phrase(["N", "NP"])
         verb = s.get_main_phrase(["V", "VP"])
-        noun_tok_pos = noun.token_positions()
-        verb_tok_pos = verb.token_positions()
+        verb_tok_pos = [1+pos for pos in verb.token_positions()] #accounting for CLS
         ret.append(
             {
                 "input" : str(s),
@@ -152,7 +153,27 @@ def gen(terminals, num):
         )
     return ret
 
-sentences = gen(terminals_mammals, 22000)
+#sentences = gen(terminals_mammals, 76000)
+
+def gen_pagreementsentences(terminals, num):
+    sentences = []
+    grammar = gen_grammar(terminals)
+    for i in tqdm.tqdm(range(num)):
+        s1 = Sentence(grammar)
+        s2 = Sentence(grammar)
+        s2.add_pronoun(["it"])
+        noun = s1.get_main_phrase(["N", "NP"]).word
+        pron_tok_pos = len(s1.tokenize())
+        sentences.append(
+            {
+                "input":str(s1)+". then "+str(s2)+".",
+                "pron_tok_pos":pron_tok_pos+2, #account for period and CLS
+                "class":noun
+            }
+        )
+    return sentences
+
+sentences = gen_pagreementsentences(terminals_mammals, 91000)
 
 with open("train_data.json", "w") as f:
     f.write(json.dumps({

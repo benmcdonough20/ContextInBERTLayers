@@ -40,15 +40,15 @@ class BERTHiddenStateClassifier(nn.Module):
   def forward(self, inp):
 
     #encode and move to GPU
-    tokens_idxs = inp[0]
+    token_idx = inp[0]
     encoded_input = self.tokenizer(inp[1], return_tensors = "pt")
+
     for key, value in encoded_input.items():
       encoded_input[key] = value.to(device = DEVICE)
 
-    embs = self.bert(**encoded_input)["hidden_states"][self.layer][0]
-    ret = [embs[i].detach() for i in tokens_idxs[:MAXTOKS]]+[torch.zeros(BERTHSSIZE).to(DEVICE) for i in range(MAXTOKS-len(tokens_idxs))]
+    emb = self.bert(**encoded_input)["hidden_states"][self.layer][0][token_idx].detach()
 
-    outp = self.Softmax(self.W(torch.cat(ret)))
+    outp = self.Softmax(self.W(emb))
     return outp
 
   def predict(self, noun_tokens, sentence): #classify and generate prediction to compute loss
@@ -64,7 +64,7 @@ def compute_validation_loss(model, set):
 
   for example in tqdm.tqdm(set):
 
-    tokenized_sentence, token_idxs, correct_label = example['input'], example['verb_tok_poses'], example['class']
+    tokenized_sentence, token_idxs, correct_label = example['input'], example['pron_tok_pos'], example['class']
 
     ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
     predicted = model([token_idxs, tokenized_sentence])
@@ -75,14 +75,14 @@ def compute_validation_loss(model, set):
 
 if __name__=='__main__':
   all_acuracies = []
-  for hidden_state_iter in range(1,13,2):
+  for hidden_state_iter in range(12,13):
     cls = BERTHiddenStateClassifier(hidden_state_iter).to(device=DEVICE)
-    optimizer = torch.optim.Adam(cls.parameters(), lr=0.003)
+    optimizer = torch.optim.Adam(cls.parameters(), lr=0.002)
 
     loss = 0
     for index, example in enumerate(dataset['train']):
 
-      tokenized_sentence, token_idxs, correct_label = example['input'], example['verb_tok_poses'], example['class']
+      tokenized_sentence, token_idxs, correct_label = example['input'], example['pron_tok_pos'], example['class']
 
       ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
       predicted = cls([token_idxs, tokenized_sentence])

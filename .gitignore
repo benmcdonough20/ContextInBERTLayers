@@ -1,3 +1,5 @@
 train_data.json
 test.ipynb
 datasets
+train_data(noun_only).json
+train_data(noun_verb).json
