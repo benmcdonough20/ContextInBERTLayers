@@ -74,31 +74,29 @@ def compute_validation_loss(model, set):
   return total_loss / count_examples, total_correct / count_examples
 
 if __name__=='__main__':
-  all_acuracies = []
-  for hidden_state_iter in range(12,13):
-    cls = BERTHiddenStateClassifier(hidden_state_iter).to(device=DEVICE)
-    optimizer = torch.optim.Adam(cls.parameters(), lr=0.002)
+  ITER = 1
+  cls = BERTHiddenStateClassifier(ITER).to(device=DEVICE)
+  optimizer = torch.optim.Adam(cls.parameters(), lr=0.001)
 
-    loss = 0
-    for index, example in enumerate(dataset['train']):
+  loss = 0
+  for index, example in enumerate(dataset['train']):
 
-      tokenized_sentence, token_idxs, correct_label = example['input'], example['pron_tok_pos'], example['class']
+    tokenized_sentence, token_idxs, correct_label = example['input'], example['verb_tok_pos'], example['class']
 
-      ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
-      predicted = cls([token_idxs, tokenized_sentence])
-      loss += loss_function(predicted, ideal_dist)
+    ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
+    predicted = cls([token_idxs, tokenized_sentence])
+    loss += loss_function(predicted, ideal_dist)
 
-      if index % 64 == 0: #Can we improve this naive batching strategy?
-        loss.backward() #loss is a tensor and contains a backpropagation method
-        optimizer.step() #step and then zero out
-        optimizer.zero_grad()
-        loss = 0
+    if index % 64 == 0: #Can we improve this naive batching strategy?
+      loss.backward() #loss is a tensor and contains a backpropagation method
+      optimizer.step() #step and then zero out
+      optimizer.zero_grad()
+      loss = 0
 
-      #monitor performance
-      if index % 4000 == 0:
-        loss, accuracy = compute_validation_loss(cls, dataset["validation"])
-        print(index, loss.item(), accuracy)
-    _, round_accuracy = compute_validation_loss(cls,dataset["test"])
-    print("round {hidden_state_iter} accuracy:", round_accuracy)
-    all_acuracies.append(round_accuracy)
-  print(all_acuracies)
+    #monitor performance
+    if index % 1000 == 0:
+      loss, accuracy = compute_validation_loss(cls, dataset["validation"])
+      print(index, loss.item(), accuracy)
+
+    _,final_accuracy = compute_validation_loss(cls, dataset['test'])
+    print("ACCURACY",ITER,final_accuracy)
