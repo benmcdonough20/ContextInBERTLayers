@@ -8,15 +8,69 @@ CONFIG = BertConfig.from_pretrained('bert-base-uncased', output_hidden_states = 
 
 BERTHSSIZE = 768
 MAXTOKS = 1
+NUM_CLASSES=20
+
+CLASS = "name1" #gender
+#CLASS = "name2" #proximity
+
+girls_names = [
+    "Emily",
+    "Sophia",
+    "Olivia",
+    "Ava",
+    "Isabella",
+    "Mia",
+    "Amelia",
+    "Harper",
+    "Evelyn",
+    "Abigail",
+    "Charlotte",
+    "Emma",
+    "Scarlett",
+    "Grace",
+    "Lily",
+    "Chloe",
+    "Aria",
+    "Ella",
+    "Madison",
+    "Zoe"
+]
+
+guys_names = [
+    "Liam",
+    "Noah",
+    "William",
+    "James",
+    "Oliver",
+    "Benjamin",
+    "Elijah",
+    "Lucas",
+    "Mason",
+    "Logan",
+    "Alexander",
+    "Ethan",
+    "Jacob",
+    "Michael",
+    "Daniel",
+    "Henry",
+    "Jackson",
+    "Sebastian",
+    "Aiden",
+    "Matthew"
+]
+
+
+if CLASS == "name1":
+  SET = guys_names
+elif CLASS == "name2":
+  SET = girls_names
 
 import json
 
 datafile = open("/home/ben/Documents/Repos/ContextInBERTLayers/train_data.json", "r")
 dataset = json.load(datafile)
 
-classes = list(set([t["class"] for t in dataset['train']]))
-
-def dirac_mass(cat):
+def dirac_mass(classes, cat):
   ret = [0]*len(classes)
   ret[classes.index(cat)] = 1
   return ret
@@ -33,7 +87,7 @@ class BERTHiddenStateClassifier(nn.Module):
     # now "bert(**input)" will contain a key for all hidden layers (13)
     self.bert = BertModel.from_pretrained("bert-base-uncased", config = CONFIG).to(device=DEVICE)
 
-    self.W = nn.Linear(BERTHSSIZE*MAXTOKS, len(classes))
+    self.W = nn.Linear(BERTHSSIZE*MAXTOKS, NUM_CLASSES)
     self.Softmax = nn.Softmax()
 
   # vector, it should return the output
@@ -64,26 +118,26 @@ def compute_validation_loss(model, set):
 
   for example in tqdm.tqdm(set):
 
-    tokenized_sentence, token_idxs, correct_label = example['input'], example['pron_tok_pos'], example['class']
+    tokenized_sentence, token_idxs, correct_label = example['input'], example['pron_tok_pos'], example[CLASS]
 
-    ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
+    ideal_dist = torch.Tensor(dirac_mass(SET, correct_label)).to(device=DEVICE)
     predicted = model([token_idxs, tokenized_sentence])
     total_loss += loss_function(predicted, ideal_dist)
-    total_correct += int(classes[torch.topk(predicted, 1)[1].item()] == correct_label)
+    total_correct += int(SET[torch.topk(predicted, 1)[1].item()] == correct_label)
 
   return total_loss / count_examples, total_correct / count_examples
 
 if __name__=='__main__':
-  ITER = 4
+  ITER = 12
   cls = BERTHiddenStateClassifier(ITER).to(device=DEVICE)
   optimizer = torch.optim.Adam(cls.parameters(), lr=0.002)
 
   loss = 0
   for index, example in enumerate(dataset['train']):
 
-    tokenized_sentence, token_idxs, correct_label = example['input'], example['pron_tok_pos'], example['class']
+    tokenized_sentence, token_idxs, correct_label = example['input'], example['pron_tok_pos'], example[CLASS]
 
-    ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
+    ideal_dist = torch.Tensor(dirac_mass(SET, correct_label)).to(device=DEVICE)
     predicted = cls([token_idxs, tokenized_sentence])
     loss += loss_function(predicted, ideal_dist)
 
