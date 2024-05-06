@@ -126,12 +126,13 @@ class EmptyNode:
         return self.word
 
 
-s = Sentence(gen_grammar(terminals_mammals))
-
-def gen(num):
+def gen(terminals, num):
     ret = []
+    sentences = set()
+    grammar = gen_grammar(terminals)
     for i in tqdm.tqdm(range(num)):
-        s = Sentence(gen_grammar(terminals_mammals))
+        s = Sentence(grammar)
+        sentences.add(str(s))
         noun = s.get_main_phrase(["N", "NP"])
         noun_tok_pos = noun.token_positions()
         ret.append(
@@ -141,13 +142,13 @@ def gen(num):
                 "class" : noun.word
             }
         )
+    print("Unique sentences:", len(list(sentences)), len(list(sentences))/num)
     return ret
-
 
 with open("train_data.json", "w") as f:
     f.write(json.dumps({
-        'train':gen(50000),
-        'validation':gen(800),
-        'test':gen(1000)
+        'train':gen(terminals_mammals, 10000),
+        'validation':gen(terminals_mammals, 800),
+        'test':gen(terminals_fish, 2000)
         },
         indent = 2))

@@ -5,9 +5,9 @@ import tqdm
 
 DEVICE = torch.device('cuda')
 CONFIG = BertConfig.from_pretrained('bert-base-uncased', show_hidden_states = True)
+
 BERTHSSIZE = 768
 MAXTOKS = 3
-GRUHSSIZE = 10
 
 import json
 
@@ -21,26 +21,6 @@ def dirac_mass(cat):
   ret[classes.index(cat)] = 1
   return ret
 
-class RNN_GRU_classifier(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes):
-        super(RNN_GRU_classifier, self).__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.gru = nn.GRU(input_size, hidden_size, num_layers)   # GRU
-        self.fc = nn.Linear(hidden_size, num_classes)  
-        self.Softmax = nn.Softmax()
-
-    def forward(self, x):
-        # Set initial hidden and cell states - GRU
-        h0 = torch.zeros(self.num_layers, self.hidden_size).to(DEVICE) 
-        # Forward propagate RNN
-        out, _ = self.gru(x, h0)
-        # Decode the hidden state of the last time step
-        out = self.fc(out[-1,:])
-        out = self.Softmax(out) 
-        return out
-
-
 class BERTHiddenStateClassifier(nn.Module):
 
   def __init__(self):
@@ -51,6 +31,14 @@ class BERTHiddenStateClassifier(nn.Module):
     # from https://huggingface.co/docs/transformers/model_doc/bert#tfbertmodel
     # now "bert(**input)" will contain a key for all hidden layers (13)
     self.bert = BertModel.from_pretrained("bert-base-uncased", config = CONFIG).to(device=DEVICE)
+    """
+    self.W1 = nn.Linear(BERTHSSIZE, len(classes))
+    self.W2 = nn.Linear(BERTHSSIZE, len(classes))
+    self.W3 = nn.Linear(BERTHSSIZE, len(classes))
+    self.W4 = nn.Linear(BERTHSSIZE, len(classes))
+    """
+    self.W = nn.Linear(BERTHSSIZE*MAXTOKS, len(classes))
+    self.Softmax = nn.Softmax()
 
     """
     replace this with RNN! 
@@ -66,7 +54,6 @@ class BERTHiddenStateClassifier(nn.Module):
       nn.Softmax()
     )
     """
-    self.output = RNN_GRU_classifier(MAXTOKS, GRUHSSIZE, 1, len(classes))
 
   # vector, it should return the output
   def forward(self, inp):
@@ -81,30 +68,29 @@ class BERTHiddenStateClassifier(nn.Module):
     For now, just using the first of the tokens to classify. Replace with RNN
     """
     embs = self.bert(**encoded_input)["last_hidden_state"][0]
-    ret = []
-    for i in range(MAXTOKS):
-      if i < len(tokens_idxs):
-        ret.append(embs[tokens_idxs[i]])
-      else:
-        ret.append(torch.zeros(BERTHSSIZE).to(device = DEVICE))
-   
-    ret = torch.stack(ret, dim = 1)
-    outp = self.output(ret)
-
+    ret = [embs[i].detach() for i in tokens_idxs[:MAXTOKS]]+[torch.zeros(BERTHSSIZE).to(DEVICE) for i in range(MAXTOKS-len(tokens_idxs))]
+    """
+    lin1 = self.W1(ret[0])
+    lin2 = self.W2(ret[1])
+    lin3 = self.W3(ret[2])
+    lin4 = self.W4(ret[3])
+    outp = self.Softmax(lin1+lin2+lin3+lin4)
+    """
+    outp = self.Softmax(self.W(torch.cat(ret)))
     return outp
 
   def predict(self, noun_tokens, sentence): #classify and generate prediction to compute loss
-    prob = self.forward(sentence)
-    return classes[torch.topk(prob, 1)[1].item()]
+    prob = self.forward([noun_tokens,sentence])
+    return torch.topk(prob, 1)[1].item()
 
 loss_function = nn.CrossEntropyLoss()
-def compute_validation_loss(model):
+def compute_validation_loss(model, set):
 
   total_loss = 0
   total_correct = 0
-  count_examples = len(dataset['validation'])
+  count_examples = len(set)
 
-  for example in tqdm.tqdm(dataset['validation']):
+  for example in tqdm.tqdm(set):
 
     tokenized_sentence, token_idxs, correct_label = example['input'], example['noun_tok_poses'], example['class']
 
@@ -117,7 +103,7 @@ def compute_validation_loss(model):
 
 
 cls = BERTHiddenStateClassifier().to(device=DEVICE)
-optimizer = torch.optim.Adam(cls.parameters(), lr=0.005)
+optimizer = torch.optim.Adam(cls.parameters(), lr=0.0005)
 
 loss = 0
 for index, example in enumerate(dataset['train']):
@@ -136,5 +122,5 @@ for index, example in enumerate(dataset['train']):
 
   #monitor performance
   if index % 1000 == 0:
-    loss, accuracy = compute_validation_loss(cls)
+    loss, accuracy = compute_validation_loss(cls, dataset["validation"])
     print(index, loss.item(), accuracy)
