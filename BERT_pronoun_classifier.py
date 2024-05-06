@@ -98,5 +98,5 @@ if __name__=='__main__':
       loss, accuracy = compute_validation_loss(cls, dataset["validation"])
       print(index, loss.item(), accuracy)
 
-    _,final_accuracy = compute_validation_loss(cls, dataset['test'])
-    print("ACCURACY",ITER,final_accuracy)
+  _,final_accuracy = compute_validation_loss(cls, dataset['test'])
+  print("ACCURACY",ITER,final_accuracy)
