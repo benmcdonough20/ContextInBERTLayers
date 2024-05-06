@@ -1,6 +1,7 @@
 import random
 import json
 from transformers import BertTokenizer
+import tqdm
 
 #Little rhyming grammar I made
 sample_grammar = {
@@ -127,18 +128,26 @@ class EmptyNode:
 
 s = Sentence(gen_grammar(terminals_mammals))
 
-responses = []
-for i in range(20):
-    s = Sentence(gen_grammar(terminals_mammals))
-    noun = s.get_main_phrase(["N", "NP"])
-    noun_tok_pos = noun.token_positions()
-    responses.append(
-        {
-            "input" : str(s),
-            "noun_tok_poses" : list(noun_tok_pos),
-            "class" : noun.word
-        }
-    )
+def gen(num):
+    ret = []
+    for i in tqdm.tqdm(range(num)):
+        s = Sentence(gen_grammar(terminals_mammals))
+        noun = s.get_main_phrase(["N", "NP"])
+        noun_tok_pos = noun.token_positions()
+        ret.append(
+            {
+                "input" : str(s),
+                "noun_tok_poses" : list(noun_tok_pos),
+                "class" : noun.word
+            }
+        )
+    return ret
+
 
 with open("train_data.json", "w") as f:
-    f.write(json.dumps(responses, indent = 2))
+    f.write(json.dumps({
+        'train':gen(50000),
+        'validation':gen(800),
+        'test':gen(1000)
+        },
+        indent = 2))

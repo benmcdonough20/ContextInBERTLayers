@@ -1,21 +1,46 @@
 import torch
 import torch.nn as nn
 from transformers import BertTokenizer, BertModel, BertConfig
+import tqdm
 
 DEVICE = torch.device('cuda')
 CONFIG = BertConfig.from_pretrained('bert-base-uncased', show_hidden_states = True)
+BERTHSSIZE = 768
+MAXTOKS = 3
+GRUHSSIZE = 128
 
 import json
 
-train_file = open("/home/ben/Documents/Repos/ContextInBERTLayers/train_data.json", "r")
-train_data = json.load(train_file)
+datafile = open("/home/ben/Documents/Repos/ContextInBERTLayers/train_data.json", "r")
+dataset = json.load(datafile)
 
-classes = list(set([t["class"] for t in train_data]))
+classes = list(set([t["class"] for t in dataset['train']]))
 
 def dirac_mass(cat):
   ret = [0]*len(classes)
   ret[classes.index(cat)] = 1
   return ret
+
+class RNN_GRU_classifier(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes):
+        super(RNN_GRU_classifier, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.gru = nn.GRU(input_size, hidden_size, num_layers, bidirectional = True)   # GRU
+        self.fc = nn.Linear(hidden_size, num_classes)  
+        self.Softmax = nn.Softmax(dim=1)
+
+    def forward(self, x):
+        # Set initial hidden and cell states - GRU
+        h0 = torch.zeros(2*self.num_layers, self.hidden_size).to(DEVICE) 
+        print(h0.shape)
+        # Forward propagate RNN
+        out, _ = self.gru(x, h0)
+        # Decode the hidden state of the last time step
+        out = self.fc(out[-1,:])
+        out = self.Softmax(out) 
+        return out
+
 
 class BERTHiddenStateClassifier(nn.Module):
 
@@ -31,6 +56,7 @@ class BERTHiddenStateClassifier(nn.Module):
     """
     replace this with RNN! 
     """
+    """
     self.output = nn.Sequential(
       nn.Linear(
         in_features = 768, #represents a BERT encoding of a single word. This should be enough but
@@ -40,6 +66,8 @@ class BERTHiddenStateClassifier(nn.Module):
       ),
       nn.Softmax()
     )
+    """
+    self.output = RNN_GRU_classifier(MAXTOKS, GRUHSSIZE, 1, len(classes))
 
   # vector, it should return the output
   def forward(self, inp):
@@ -53,10 +81,17 @@ class BERTHiddenStateClassifier(nn.Module):
     """
     For now, just using the first of the tokens to classify. Replace with RNN
     """
-    emb = self.bert(**encoded_input)["last_hidden_state"][0][tokens_idxs[0]]
-    
-    emb = emb.detach() #I guess this moves it out of GPU mem?
-    outp = self.output(emb)
+    embs = self.bert(**encoded_input)["last_hidden_state"][0]
+    ret = []
+    for i in range(MAXTOKS):
+      if i < len(tokens_idxs):
+        ret.append(embs[tokens_idxs[i]])
+      else:
+        ret.append(torch.zeros(BERTHSSIZE).to(device = DEVICE))
+   
+    ret = torch.stack(ret, dim = 1)
+    print(ret.shape)
+    outp = self.output(ret)
 
     return outp
 
@@ -69,9 +104,9 @@ def compute_validation_loss(model):
 
   total_loss = 0
   total_correct = 0
-  count_examples = len(train_data)
+  count_examples = len(dataset['validation'])
 
-  for example in train_data:
+  for example in tqdm.tqdm(dataset['validation']):
 
     tokenized_sentence, token_idxs, correct_label = example['input'], example['noun_tok_poses'], example['class']
 
@@ -87,14 +122,12 @@ cls = BERTHiddenStateClassifier().to(device=DEVICE)
 optimizer = torch.optim.Adam(cls.parameters(), lr=0.005)
 
 loss = 0
-for index, example in enumerate(train_data):
+for index, example in enumerate(dataset['train']):
 
   tokenized_sentence, token_idxs, correct_label = example['input'], example['noun_tok_poses'], example['class']
 
   ideal_dist = torch.Tensor(dirac_mass(correct_label)).to(device=DEVICE)
   predicted = cls([token_idxs, tokenized_sentence])
-
-  print(predicted, ideal_dist)
   loss += loss_function(predicted, ideal_dist)
 
   if index % 64 == 0: #Can we improve this naive batching strategy?

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import BertTokenizer, BertModel, BertConfig
+import tqdm
 
 import datasets #to be replaced with CFG generator
 
@@ -57,7 +58,7 @@ def compute_validation_loss(model):
   total_correct = 0
   count_examples = len(sst2["validation"])
 
-  for example in sst2["validation"]:
+  for example in tqdm.tqdm(sst2["validation"]):
 
     sentence, correct_label = example["sentence"], example["label"]
 
@@ -68,8 +69,8 @@ def compute_validation_loss(model):
 
   return total_loss / count_examples, total_correct / count_examples
 
-
 cls = BERTHiddenStateClassifier().to(device=DEVICE)
+"""
 optimizer = torch.optim.Adam(cls.parameters(), lr=0.005)
 
 loss = 0
@@ -97,3 +98,14 @@ for index, example in enumerate(sst2["train"]):
 
 #functions defined in the classifer class can now be used
 cls.predict("I hate this movie!")
+"""
+example = sst2["train"][0]
+sentence = example["sentence"]
+label = torch.FloatTensor([example["label"]]).to(device=DEVICE)
+
+# Get the model's prediction
+predicted = cls(sentence)
+# Compute the loss
+
+loss, accuracy = compute_validation_loss(cls)
+print(index, loss.item(), accuracy)
