@@ -44,6 +44,7 @@ be found in Experiment 1.
 ## Running
 
 To run any experiment, navigate to the requisite folder and run
-1 - `python CFG.py`
-2 - `python BERT_classifier.py`
+1. `python CFG.py`
+2.  `python BERT_classifier.py`
+   
 or replace these with the appropriate file name where necessary.
