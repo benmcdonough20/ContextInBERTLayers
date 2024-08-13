@@ -75,6 +75,7 @@ def dirac_mass(classes, cat):
   ret[classes.index(cat)] = 1
   return ret
 
+#Largely borrowed from April 4th Colab notebook! Cited in paper.
 class BERTHiddenStateClassifier(nn.Module):
 
   def __init__(self, layer):
